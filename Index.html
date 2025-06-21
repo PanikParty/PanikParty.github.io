@@ -288,7 +288,7 @@
         
         .export-options {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(3, 1fr);
             gap: 10px;
         }
         
@@ -326,10 +326,38 @@
             font-size: 1.3rem;
         }
         
-        .control-row {
+        .resolution-control {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .resolution-value {
+            min-width: 80px;
+            text-align: center;
+            font-weight: 500;
+            background: #e3f2fd;
+            padding: 6px 10px;
+            border-radius: 4px;
+        }
+        
+        .export-quality {
             display: flex;
-            gap: 15px;
-            margin-bottom: 15px;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .export-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .export-title {
+            font-weight: 600;
+            color: var(--primary);
         }
     </style>
 </head>
@@ -337,7 +365,7 @@
     <div class="container">
         <header>
             <h1><i class="fas fa-chart-network"></i> Data Flow Visualizer</h1>
-            <p>Interactive Sankey diagram with customization controls</p>
+            <p>Interactive Sankey diagram with advanced export options</p>
         </header>
         
         <section class="input-section">
@@ -448,7 +476,7 @@ Nuclear 2000 Industrial"></textarea>
                             <label for="font-family">Font Family:</label>
                             <select id="font-family">
                                 <option value="Arial, sans-serif">Arial</option>
-                                <option value="'Segoe UI', Tahoma, Geneva, Verdana, sans-serif">Segoe UI</option>
+                                <option value="'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" selected>Segoe UI</option>
                                 <option value="Georgia, serif">Georgia</option>
                                 <option value="'Courier New', monospace">Courier New</option>
                             </select>
@@ -468,15 +496,30 @@ Nuclear 2000 Industrial"></textarea>
                 </div>
                 
                 <div class="control-group">
-                    <div class="control-header">
-                        <div class="control-title">Export Options</div>
+                    <div class="export-header">
+                        <div class="export-title">Export Options</div>
+                        <div class="resolution-value" id="resolution-display">4K</div>
                     </div>
-                    <div class="export-options">
+                    
+                    <div class="export-quality">
+                        <label for="resolution">Export Resolution:</label>
+                        <div class="resolution-control">
+                            <input type="range" id="resolution" min="1" max="4" value="4" step="1">
+                            <div>
+                                <span id="resolution-value">3840×2160</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="export-options" style="margin-top: 15px;">
                         <button id="export-png" class="btn btn-secondary">
-                            <i class="fas fa-download"></i> PNG
+                            <i class="fas fa-file-image"></i> PNG
                         </button>
                         <button id="export-svg" class="btn btn-secondary">
-                            <i class="fas fa-download"></i> SVG
+                            <i class="fas fa-file-code"></i> SVG
+                        </button>
+                        <button id="export-json" class="btn btn-secondary">
+                            <i class="fas fa-file-code"></i> JSON
                         </button>
                     </div>
                 </div>
@@ -515,6 +558,18 @@ Nuclear 2000 Industrial"></textarea>
         const textColorPicker = document.getElementById('text-color');
         const exportPngBtn = document.getElementById('export-png');
         const exportSvgBtn = document.getElementById('export-svg');
+        const exportJsonBtn = document.getElementById('export-json');
+        const resolutionSlider = document.getElementById('resolution');
+        const resolutionValue = document.getElementById('resolution-value');
+        const resolutionDisplay = document.getElementById('resolution-display');
+        
+        // Resolution presets
+        const resolutionPresets = {
+            1: { width: 1920, height: 1080, label: "1080p" },
+            2: { width: 2560, height: 1440, label: "1440p" },
+            3: { width: 3840, height: 2160, label: "4K" },
+            4: { width: 7680, height: 4320, label: "8K" }
+        };
         
         // Current data and settings
         let currentData = [];
@@ -678,7 +733,7 @@ Nuclear 2000 Industrial"></textarea>
             // Generate colors for nodes
             const nodeColors = generateColors(nodes.length);
             const linkColors = links.map(link => {
-                // Use a slightly transparent version of the source node color
+                // Use a slightly transparent version of the selected link color
                 const color = sankeySettings.linkColor;
                 return color.replace(')', ', 0.5)');
             });
@@ -814,13 +869,26 @@ Nuclear 2000 Industrial"></textarea>
             updateSankey();
         });
         
+        // Resolution slider handler
+        resolutionSlider.addEventListener('input', () => {
+            const presetValue = parseInt(resolutionSlider.value);
+            const preset = resolutionPresets[presetValue];
+            
+            resolutionValue.textContent = `${preset.width}×${preset.height}`;
+            resolutionDisplay.textContent = preset.label;
+        });
+        
         // Export functionality
         exportPngBtn.addEventListener('click', () => {
+            const presetValue = parseInt(resolutionSlider.value);
+            const preset = resolutionPresets[presetValue];
+            
             Plotly.downloadImage(sankeyDiagram, {
                 format: 'png',
                 filename: 'sankey_diagram',
-                height: 800,
-                width: 1200
+                height: preset.height,
+                width: preset.width,
+                scale: 2 // Higher scale for better quality
             });
         });
         
@@ -831,6 +899,29 @@ Nuclear 2000 Industrial"></textarea>
                 height: 800,
                 width: 1200
             });
+        });
+        
+        exportJsonBtn.addEventListener('click', () => {
+            // Create export data object
+            const exportData = {
+                 currentData,
+                settings: sankeySettings
+            };
+            
+            // Create JSON string
+            const jsonString = JSON.stringify(exportData, null, 2);
+            
+            // Create blob and download
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sankey_config.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         });
         
         // Initialize with sample data
@@ -858,6 +949,12 @@ Nuclear 2000 Industrial"></textarea>
             // Initialize slider values
             nodePaddingValue.textContent = sankeySettings.nodePadding;
             fontSizeValue.textContent = `${sankeySettings.fontSize}px`;
+            
+            // Set initial resolution display
+            const presetValue = parseInt(resolutionSlider.value);
+            const preset = resolutionPresets[presetValue];
+            resolutionValue.textContent = `${preset.width}×${preset.height}`;
+            resolutionDisplay.textContent = preset.label;
         });
     </script>
 </body>
