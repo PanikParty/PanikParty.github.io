@@ -1,0 +1,866 @@
+Sankey Tool
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Data Flow Visualizer</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #3498db;
+            --secondary: #2ecc71;
+            --accent: #e74c3c;
+            --light: #f8f9fa;
+            --dark: #343a40;
+            --border: #dee2e6;
+            --panel-bg: #ffffff;
+            --control-bg: #f8f9fa;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: var(--dark);
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        header {
+            grid-column: 1 / -1;
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .input-section {
+            background: var(--panel-bg);
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: grid;
+            grid-template-rows: auto auto 1fr;
+            gap: 20px;
+            height: fit-content;
+        }
+        
+        .visualization-section {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+        }
+        
+        .visualization {
+            background: var(--panel-bg);
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .controls-panel {
+            background: var(--panel-bg);
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .tabs {
+            display: flex;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            font-weight: 500;
+            color: var(--dark);
+            transition: all 0.3s;
+            border-radius: 5px 5px 0 0;
+        }
+        
+        .tab.active {
+            border-bottom: 3px solid var(--primary);
+            color: var(--primary);
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 18px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        textarea, input[type="file"], input[type="range"], input[type="color"], select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            font-size: 1rem;
+            background-color: var(--control-bg);
+        }
+        
+        textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+        
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn i {
+            font-size: 1.1rem;
+        }
+        
+        .btn-secondary {
+            background-color: var(--secondary);
+        }
+        
+        .btn-secondary:hover {
+            background-color: #27ae60;
+        }
+        
+        .btn-accent {
+            background-color: var(--accent);
+        }
+        
+        .btn-accent:hover {
+            background-color: #c0392b;
+        }
+        
+        .btn-block {
+            display: block;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .instructions {
+            background-color: #e3f2fd;
+            border-left: 4px solid var(--primary);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .instructions h3 {
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+        
+        .instructions ul {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+        
+        #sankey-diagram {
+            flex: 1;
+            min-height: 500px;
+        }
+        
+        .data-preview {
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        th, td {
+            border: 1px solid var(--border);
+            padding: 10px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #f1f8ff;
+            font-weight: 600;
+        }
+        
+        .error {
+            color: var(--accent);
+            margin-top: 8px;
+            font-size: 0.95rem;
+        }
+        
+        .control-group {
+            background-color: var(--control-bg);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .control-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--primary);
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .slider-value {
+            min-width: 40px;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .color-control {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .export-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .font-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .font-control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        @media (max-width: 992px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            
+            .export-options {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: var(--primary);
+        }
+        
+        .panel-title i {
+            font-size: 1.3rem;
+        }
+        
+        .control-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-chart-network"></i> Data Flow Visualizer</h1>
+            <p>Interactive Sankey diagram with customization controls</p>
+        </header>
+        
+        <section class="input-section">
+            <div class="tabs">
+                <button class="tab active" data-tab="text">Text Input</button>
+                <button class="tab" data-tab="csv">CSV Upload</button>
+            </div>
+            
+            <div class="tab-content active" id="text-tab">
+                <div class="instructions">
+                    <h3>Text Input Format</h3>
+                    <p>Enter data in the format: <code>Source Amount Target</code></p>
+                    <ul>
+                        <li>One entry per line</li>
+                        <li>Separate fields by spaces</li>
+                        <li>Example: <code>Solar 1500 Residential</code></li>
+                    </ul>
+                </div>
+                
+                <div class="form-group">
+                    <label for="text-input">Enter Data:</label>
+                    <textarea id="text-input" placeholder="Example:
+Solar 1500 Residential
+Wind 800 Commercial
+Nuclear 2000 Industrial"></textarea>
+                    <div id="text-error" class="error"></div>
+                </div>
+                
+                <button id="visualize-text" class="btn btn-block">
+                    <i class="fas fa-sync-alt"></i> Update Visualization
+                </button>
+            </div>
+            
+            <div class="tab-content" id="csv-tab">
+                <div class="instructions">
+                    <h3>CSV File Requirements</h3>
+                    <p>Upload a CSV file with the following columns:</p>
+                    <ul>
+                        <li><code>From</code> (source)</li>
+                        <li><code>To</code> (target)</li>
+                        <li><code>Amount</code> (numeric value)</li>
+                    </ul>
+                </div>
+                
+                <div class="form-group">
+                    <label for="csv-upload">Upload CSV File:</label>
+                    <input type="file" id="csv-upload" accept=".csv">
+                    <div id="csv-error" class="error"></div>
+                </div>
+                
+                <button id="visualize-csv" class="btn btn-block">
+                    <i class="fas fa-sync-alt"></i> Update Visualization
+                </button>
+            </div>
+            
+            <div class="data-preview">
+                <h3><i class="fas fa-table"></i> Parsed Data Preview</h3>
+                <table id="data-preview-table">
+                    <thead>
+                        <tr>
+                            <th>Source</th>
+                            <th>Target</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+        
+        <section class="visualization-section">
+            <div class="controls-panel">
+                <div class="panel-title">
+                    <i class="fas fa-sliders-h"></i>
+                    <h2>Diagram Customization</h2>
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-header">
+                        <div class="control-title">Node Configuration</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="node-padding">Node Padding (px): <span id="node-padding-value">15</span></label>
+                        <div class="slider-container">
+                            <input type="range" id="node-padding" min="5" max="50" value="15" step="1">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-header">
+                        <div class="control-title">Link Appearance</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="link-color">Link Color:</label>
+                        <div class="color-control">
+                            <input type="color" id="link-color" value="#3498db">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-header">
+                        <div class="control-title">Text Customization</div>
+                    </div>
+                    <div class="font-controls">
+                        <div class="font-control-group">
+                            <label for="font-family">Font Family:</label>
+                            <select id="font-family">
+                                <option value="Arial, sans-serif">Arial</option>
+                                <option value="'Segoe UI', Tahoma, Geneva, Verdana, sans-serif">Segoe UI</option>
+                                <option value="Georgia, serif">Georgia</option>
+                                <option value="'Courier New', monospace">Courier New</option>
+                            </select>
+                        </div>
+                        <div class="font-control-group">
+                            <label for="font-size">Font Size (px):</label>
+                            <input type="range" id="font-size" min="8" max="24" value="12" step="1">
+                            <span id="font-size-value">12px</span>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label for="text-color">Text Color:</label>
+                        <div class="color-control">
+                            <input type="color" id="text-color" value="#2c3e50">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-header">
+                        <div class="control-title">Export Options</div>
+                    </div>
+                    <div class="export-options">
+                        <button id="export-png" class="btn btn-secondary">
+                            <i class="fas fa-download"></i> PNG
+                        </button>
+                        <button id="export-svg" class="btn btn-secondary">
+                            <i class="fas fa-download"></i> SVG
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="visualization">
+                <div class="panel-title">
+                    <i class="fas fa-project-diagram"></i>
+                    <h2>Sankey Diagram</h2>
+                </div>
+                <div id="sankey-diagram"></div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // DOM elements
+        const textTab = document.getElementById('text-tab');
+        const csvTab = document.getElementById('csv-tab');
+        const textInput = document.getElementById('text-input');
+        const csvUpload = document.getElementById('csv-upload');
+        const visualizeTextBtn = document.getElementById('visualize-text');
+        const visualizeCsvBtn = document.getElementById('visualize-csv');
+        const textError = document.getElementById('text-error');
+        const csvError = document.getElementById('csv-error');
+        const dataPreviewTable = document.querySelector('#data-preview-table tbody');
+        const sankeyDiagram = document.getElementById('sankey-diagram');
+        
+        // Customization controls
+        const nodePaddingSlider = document.getElementById('node-padding');
+        const nodePaddingValue = document.getElementById('node-padding-value');
+        const linkColorPicker = document.getElementById('link-color');
+        const fontFamilySelect = document.getElementById('font-family');
+        const fontSizeSlider = document.getElementById('font-size');
+        const fontSizeValue = document.getElementById('font-size-value');
+        const textColorPicker = document.getElementById('text-color');
+        const exportPngBtn = document.getElementById('export-png');
+        const exportSvgBtn = document.getElementById('export-svg');
+        
+        // Current data and settings
+        let currentData = [];
+        let sankeySettings = {
+            nodePadding: 15,
+            linkColor: "#3498db",
+            fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+            fontSize: 12,
+            textColor: "#2c3e50"
+        };
+        
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+            });
+        });
+        
+        // Color generator for nodes
+        const generateColors = (count) => {
+            const colors = [];
+            for (let i = 0; i < count; i++) {
+                const hue = (i * 360 / count) % 360;
+                colors.push(`hsl(${hue}, 70%, 60%)`);
+            }
+            return colors;
+        };
+        
+        // Parse text input
+        const parseTextInput = (text) => {
+            const lines = text.trim().split('\n');
+            const data = [];
+            let errors = [];
+            
+            lines.forEach((line, index) => {
+                const parts = line.trim().split(/\s+/);
+                if (parts.length < 3) {
+                    errors.push(`Line ${index + 1}: Insufficient data. Expected format: "Source Amount Target"`);
+                    return;
+                }
+                
+                // Last part is target, first part is source, middle parts are amount
+                const target = parts.pop();
+                const source = parts.shift();
+                const amount = parseFloat(parts.join(''));
+                
+                if (isNaN(amount)) {
+                    errors.push(`Line ${index + 1}: Invalid amount value: "${parts.join(' ')}"`);
+                    return;
+                }
+                
+                data.push({ source, target, amount });
+            });
+            
+            return { data, errors };
+        };
+        
+        // Parse CSV file
+        const parseCSV = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const content = e.target.result;
+                    const lines = content.trim().split('\n');
+                    const headers = lines[0].split(',').map(h => h.trim());
+                    
+                    // Validate headers
+                    const requiredHeaders = ['from', 'to', 'amount'];
+                    const headerErrors = requiredHeaders.filter(h => 
+                        !headers.map(header => header.toLowerCase()).includes(h)
+                    );
+                    
+                    if (headerErrors.length > 0) {
+                        reject({ errors: [`Missing required columns: ${headerErrors.join(', ')}`] });
+                        return;
+                    }
+                    
+                    const data = [];
+                    const errors = [];
+                    
+                    for (let i = 1; i < lines.length; i++) {
+                        const values = lines[i].split(',').map(v => v.trim());
+                        if (values.length < 3) {
+                            errors.push(`Line ${i + 1}: Insufficient data`);
+                            continue;
+                        }
+                        
+                        const fromIdx = headers.findIndex(h => h.toLowerCase() === 'from');
+                        const toIdx = headers.findIndex(h => h.toLowerCase() === 'to');
+                        const amountIdx = headers.findIndex(h => h.toLowerCase() === 'amount');
+                        
+                        const source = values[fromIdx];
+                        const target = values[toIdx];
+                        const amount = parseFloat(values[amountIdx]);
+                        
+                        if (isNaN(amount)) {
+                            errors.push(`Line ${i + 1}: Invalid amount value: "${values[amountIdx]}"`);
+                            continue;
+                        }
+                        
+                        data.push({ source, target, amount });
+                    }
+                    
+                    resolve({ data, errors });
+                };
+                reader.readAsText(file);
+            });
+        };
+        
+        // Update data preview table
+        const updateDataPreview = (data) => {
+            dataPreviewTable.innerHTML = '';
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.source}</td>
+                    <td>${item.target}</td>
+                    <td>${item.amount.toLocaleString()}</td>
+                `;
+                dataPreviewTable.appendChild(row);
+            });
+        };
+        
+        // Generate Sankey diagram with Plotly.js
+        const renderSankey = (data) => {
+            if (data.length === 0) {
+                sankeyDiagram.innerHTML = '<p class="error">No valid data to visualize</p>';
+                return;
+            }
+            
+            // Prepare nodes and links
+            const nodeMap = new Map();
+            const links = [];
+            
+            // Process data to create nodes and links
+            data.forEach(item => {
+                // Add source node if not exists
+                if (!nodeMap.has(item.source)) {
+                    nodeMap.set(item.source, nodeMap.size);
+                }
+                
+                // Add target node if not exists
+                if (!nodeMap.has(item.target)) {
+                    nodeMap.set(item.target, nodeMap.size);
+                }
+                
+                links.push({
+                    source: nodeMap.get(item.source),
+                    target: nodeMap.get(item.target),
+                    value: item.amount
+                });
+            });
+            
+            // Create nodes array
+            const nodes = Array.from(nodeMap.keys()).map(name => ({ name }));
+            
+            // Generate colors for nodes
+            const nodeColors = generateColors(nodes.length);
+            const linkColors = links.map(link => {
+                // Use a slightly transparent version of the source node color
+                const color = sankeySettings.linkColor;
+                return color.replace(')', ', 0.5)');
+            });
+            
+            // Prepare Plotly data
+            const sankeyData = [{
+                type: "sankey",
+                orientation: "h",
+                node: {
+                    pad: sankeySettings.nodePadding,
+                    thickness: 20,
+                    line: {
+                        color: "black",
+                        width: 0.5
+                    },
+                    label: nodes.map(node => node.name),
+                    color: nodeColors
+                },
+                link: {
+                    source: links.map(link => link.source),
+                    target: links.map(link => link.target),
+                    value: links.map(link => link.value),
+                    color: linkColors
+                }
+            }];
+            
+            // Layout configuration with current settings
+            const layout = {
+                title: {
+                    text: "Data Flow Visualization",
+                    font: {
+                        family: sankeySettings.fontFamily,
+                        size: 18,
+                        color: sankeySettings.textColor
+                    }
+                },
+                font: {
+                    family: sankeySettings.fontFamily,
+                    size: sankeySettings.fontSize,
+                    color: sankeySettings.textColor
+                },
+                margin: {
+                    t: 60,
+                    l: 20,
+                    r: 20,
+                    b: 20
+                }
+            };
+            
+            // Render the diagram
+            Plotly.newPlot(sankeyDiagram, sankeyData, layout, { responsive: true });
+        };
+        
+        // Update Sankey diagram with current settings
+        const updateSankey = () => {
+            if (currentData.length > 0) {
+                renderSankey(currentData);
+            }
+        };
+        
+        // Handle text visualization
+        visualizeTextBtn.addEventListener('click', () => {
+            textError.textContent = '';
+            const text = textInput.value;
+            if (!text.trim()) {
+                textError.textContent = 'Please enter data in the specified format';
+                return;
+            }
+            
+            const { data, errors } = parseTextInput(text);
+            
+            if (errors.length > 0) {
+                textError.innerHTML = errors.join('<br>');
+            } else {
+                currentData = data;
+            }
+            
+            updateDataPreview(data);
+            renderSankey(data);
+        });
+        
+        // Handle CSV visualization
+        visualizeCsvBtn.addEventListener('click', () => {
+            csvError.textContent = '';
+            const file = csvUpload.files[0];
+            
+            if (!file) {
+                csvError.textContent = 'Please select a CSV file to upload';
+                return;
+            }
+            
+            parseCSV(file)
+                .then(({ data, errors }) => {
+                    if (errors.length > 0) {
+                        csvError.innerHTML = errors.join('<br>');
+                    } else {
+                        currentData = data;
+                    }
+                    
+                    updateDataPreview(data);
+                    renderSankey(data);
+                })
+                .catch(error => {
+                    csvError.textContent = error.errors ? error.errors.join(' ') : 'Error processing CSV file';
+                });
+        });
+        
+        // Customization controls event listeners
+        nodePaddingSlider.addEventListener('input', () => {
+            sankeySettings.nodePadding = parseInt(nodePaddingSlider.value);
+            nodePaddingValue.textContent = sankeySettings.nodePadding;
+            updateSankey();
+        });
+        
+        linkColorPicker.addEventListener('input', () => {
+            sankeySettings.linkColor = linkColorPicker.value;
+            updateSankey();
+        });
+        
+        fontFamilySelect.addEventListener('change', () => {
+            sankeySettings.fontFamily = fontFamilySelect.value;
+            updateSankey();
+        });
+        
+        fontSizeSlider.addEventListener('input', () => {
+            sankeySettings.fontSize = parseInt(fontSizeSlider.value);
+            fontSizeValue.textContent = `${sankeySettings.fontSize}px`;
+            updateSankey();
+        });
+        
+        textColorPicker.addEventListener('input', () => {
+            sankeySettings.textColor = textColorPicker.value;
+            updateSankey();
+        });
+        
+        // Export functionality
+        exportPngBtn.addEventListener('click', () => {
+            Plotly.downloadImage(sankeyDiagram, {
+                format: 'png',
+                filename: 'sankey_diagram',
+                height: 800,
+                width: 1200
+            });
+        });
+        
+        exportSvgBtn.addEventListener('click', () => {
+            Plotly.downloadImage(sankeyDiagram, {
+                format: 'svg',
+                filename: 'sankey_diagram',
+                height: 800,
+                width: 1200
+            });
+        });
+        
+        // Initialize with sample data
+        window.addEventListener('load', () => {
+            const sampleData = [
+                { source: 'Solar', target: 'Residential', amount: 1500 },
+                { source: 'Solar', target: 'Commercial', amount: 900 },
+                { source: 'Wind', target: 'Residential', amount: 800 },
+                { source: 'Wind', target: 'Industrial', amount: 1200 },
+                { source: 'Nuclear', target: 'Industrial', amount: 2000 },
+                { source: 'Hydro', target: 'Commercial', amount: 700 },
+                { source: 'Hydro', target: 'Residential', amount: 600 }
+            ];
+            
+            // Pre-fill text input with sample data
+            const sampleText = sampleData.map(item => 
+                `${item.source} ${item.amount} ${item.target}`
+            ).join('\n');
+            
+            textInput.value = sampleText;
+            currentData = sampleData;
+            updateDataPreview(sampleData);
+            renderSankey(sampleData);
+            
+            // Initialize slider values
+            nodePaddingValue.textContent = sankeySettings.nodePadding;
+            fontSizeValue.textContent = `${sankeySettings.fontSize}px`;
+        });
+    </script>
+</body>
+</html>
